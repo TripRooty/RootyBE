@@ -28,3 +28,5 @@ src/main/resources/application-local.yml
 src/main/resources/*.json
 .DS_Store
 dump.rdb
+
+.env
