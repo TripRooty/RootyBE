@@ -193,3 +193,5 @@ gradle-app.setting
 *.hprof
 
 ./src/main/resources/application-local.yml
+
+.idea
