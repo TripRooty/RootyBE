@@ -1,0 +1,27 @@
+name: "🧹 Refactor / Chore / Ops"
+description: 리팩토링, 의존성, 빌드/배포, 성능/운영 작업
+title: "[Chore] "
+labels: ["chore", "refactor"]
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: 작업 범위
+      placeholder: |
+        - Service -> Application 계층 분리
+        - Record DTO 도입, Lombok 제거
+        - WebClient 타임아웃/리트라이 정책 추가
+        - Gradle 멀티모듈 분리
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 체크리스트
+      options:
+        - label: 빌드/테스트/정적분석 통과(GitHub Actions)
+        - label: OpenAPI/Swagger 문서 반영
+        - label: 성능 회귀 없음(JMH/부하 테스트)
+        - label: 마이그레이션 검증(로컬/스테이징)
+        - label: 롤백 시나리오/릴리즈 노트 업데이트
