@@ -1,0 +1,6 @@
+# .github/ISSUE_TEMPLATE/config.yml
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 프로젝트 위키/문서
+    url: https://example.com/wiki
+    about: 브랜치 전략, 커밋 컨벤션, 배포/롤백 가이드

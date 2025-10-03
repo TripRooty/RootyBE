@@ -1,0 +1,82 @@
+name: "🐞 Bug Report (Spring/Java)"
+description: 재현 가능한 Spring/Java 버그 리포트
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 요약
+      description: 무엇이 문제인가요?
+      placeholder: 예) /api/v1/users POST에서 500 발생
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 절차
+      description: 가장 짧은 재현 스텝
+      value: |
+        1. 요청: POST /api/v1/users
+        2. 바디: {...}
+        3. 결과: 500 Internal Server Error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+      placeholder: 201 Created 및 Location 헤더 반환
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 로그/스택트레이스
+      description: 에러 로그, SQL, Testcontainers 로그 등
+      render: shell
+      placeholder: |
+        2025-10-04 00:12:34 ERROR ...
+        org.springframework.dao.DataIntegrityViolationException: ...
+    validations:
+      required: false
+
+  - type: input
+    id: endpoint
+    attributes:
+      label: 관련 API/엔드포인트
+      placeholder: POST /api/v1/users
+
+  - type: input
+    id: env
+    attributes:
+      label: 실행 환경
+      placeholder: |
+        Java 17, Spring Boot 3.3.4, Gradle 8.9, macOS 14.6
+        Profile=local, DB=PostgreSQL 16 (Docker 5433)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 영향 범위 (해당 시 체크)
+      options:
+        - label: DB 마이그레이션 필요(Flyway/Liquibase)
+        - label: 보안/권한(Spring Security/JWT)
+        - label: 트랜잭션/동시성(JPA Lock/Isolation)
+        - label: 캐시/세션/Redis
+        - label: 외부 연동(Feign/WebClient)
+        - label: 성능/메모리/쓰레드풀
+
+  - type: checkboxes
+    id: precheck
+    attributes:
+      label: 사전 확인
+      options:
+        - label: 최신 main/release 기준 재현됨
+        - label: Swagger/OpenAPI 스펙과 실제 동작 불일치 확인
+        - label: 로컬/테스트 프로파일 둘 다 확인

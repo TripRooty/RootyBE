@@ -1,0 +1,56 @@
+name: "✨ Feature Request (API/Domain)"
+description: API/도메인 기능 추가/개선 제안
+title: "[Feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: 배경/문제 정의
+      description: 왜 필요한가? 비즈니스 가치/고객 영향
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec
+    attributes:
+      label: 제안 내용 (API/도메인)
+      description: 구체 설계
+      placeholder: |
+        - API: POST /api/v1/bookings
+        - Request DTO / Response DTO
+        - 검증(Bean Validation), 예외, 권한 정책
+        - 도메인/엔티티/애그리게잇 변경
+        - 트랜잭션 경계, 이벤트 발행
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 완료 기준(DoD)
+      placeholder: |
+        - [ ] OpenAPI/Swagger 문서 갱신
+        - [ ] 단위/통합/슬라이스 테스트
+        - [ ] p95 < 200ms / N+1 없음
+        - [ ] 마이그레이션 스크립트 포함(Flyway)
+        - [ ] 롤백 시나리오 문서화
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: impacts
+    attributes:
+      label: 영향도
+      options:
+        - label: 스키마 변경(마이그레이션 필요)
+        - label: 외부 API 계약 변경(버저닝 필요)
+        - label: Config/프로파일(application-*.yml) 변경
+        - label: 메시징/Kafka/RabbitMQ
+        - label: 모바일/안드로이드 API 영향
+
+  - type: input
+    id: deps
+    attributes:
+      label: 의존성(Gradle/Maven) 추가/업데이트
+      placeholder: springdoc-openapi, mapstruct, jjwt, testcontainers
