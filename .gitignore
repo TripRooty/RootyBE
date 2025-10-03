@@ -23,10 +23,15 @@
 hs_err_pid*
 replay_pid*
 
-src/main/resources/application-local.yml
+./src/main/resources/application-local.yml
 
 src/main/resources/*.json
 .DS_Store
 dump.rdb
 
 .env
+
+### Gradle ###
+.gradle
+**/build/
+!src/**/build/

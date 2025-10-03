@@ -1,9 +1,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5433/triprooty
-    username: yerin
-    password: yerinpw
-
+    username: minhyeong
+    password: 0000
   jpa:
     hibernate:
       ddl-auto: update
