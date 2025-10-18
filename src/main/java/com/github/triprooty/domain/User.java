@@ -2,6 +2,7 @@ package com.github.triprooty.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.Where;
@@ -40,14 +41,17 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String profileImage;
 
-    @Column(nullable = false)
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
     private LocalDateTime signDate;
 
     @Column(nullable = false)
-    private Boolean locationTracing;
+    @Builder.Default
+    private Boolean locationTracing = false;
 
     @Column(nullable = false)
-    private Boolean alarm;
+    @Builder.Default
+    private Boolean alarm = false;
 
     /** 소프트 삭제 시각: null이면 활성 사용자 */
     @Column(name = "deleted_at")
