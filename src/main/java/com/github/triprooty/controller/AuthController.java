@@ -1,10 +1,11 @@
 package com.github.triprooty.controller;
 
+import com.github.triprooty.dto.request.RefreshRequest;
 import com.github.triprooty.dto.request.SigninRequest;
+import com.github.triprooty.dto.request.SignoutRequest;
 import com.github.triprooty.dto.request.SignupRequest;
-import com.github.triprooty.dto.response.TokenResponse;
-import com.github.triprooty.global.security.JwtTokenProvider;
-import com.github.triprooty.global.security.UserPrincipal;
+import com.github.triprooty.dto.response.TokenPairResponse;
+import com.github.triprooty.global.dto.DataResponse;
 import com.github.triprooty.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,19 +18,26 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final JwtTokenProvider jwt;
 
     @PostMapping("/signup")
-    public ResponseEntity<Void> signup(@RequestBody @Valid SignupRequest req) {
+    public ResponseEntity<DataResponse<Void>> signup(@RequestBody @Valid SignupRequest req) {
         authService.signup(req);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<TokenResponse> signin(@RequestBody @Valid SigninRequest req) {
-        var auth = authService.authenticate(req);
-        var principal = (UserPrincipal) auth.getPrincipal();
-        String token = jwt.createToken(principal.getEmail(), principal.getId());
-        return ResponseEntity.ok(new TokenResponse(token));
+    public ResponseEntity<DataResponse<TokenPairResponse>> signin(@RequestBody @Valid SigninRequest req) {
+        return ResponseEntity.ok(DataResponse.from(authService.signin(req)));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<DataResponse<TokenPairResponse>> refresh(@RequestBody @Valid RefreshRequest req) {
+        return ResponseEntity.ok(DataResponse.from(authService.refresh(req)));
+    }
+
+    @PostMapping("/signout")
+    public ResponseEntity<DataResponse<Void>> signout(@RequestBody @Valid SignoutRequest req) {
+        authService.signout(req);
+        return ResponseEntity.ok().build();
     }
 }

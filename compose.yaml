@@ -19,5 +19,10 @@ services:
     restart: always
     volumes:
       - pgdata:/var/lib/postgresql/data   # 선택(권장): 데이터 영속화
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    restart: always
 volumes:
   pgdata:
