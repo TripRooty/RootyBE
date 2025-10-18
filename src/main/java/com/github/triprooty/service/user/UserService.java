@@ -24,7 +24,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class UserService {
     private final UserRepository userRepository;
-//    private final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
     private final GcsService gcsService;
 
     /**
@@ -38,14 +38,14 @@ public class UserService {
     /**
      * 비밀번호 변경
      */
-//    @Transactional
-//    public void changeUserPassword(UUID userId, String newPassword){
-//        User user=getUserOrThrow(userId);
-//        if(passwordEncoder.matches(newPassword,user.getPassword())){
-//            throw new AppException(UserErrorCode.SAME_AS_OLD_PASSWORD); //USER-015
-//        }
-//        user.updatePassword(passwordEncoder.encode(newPassword));
-//    }
+    @Transactional
+    public void changeUserPassword(UUID userId, String newPassword){
+        User user=getUserOrThrow(userId);
+        if(passwordEncoder.matches(newPassword,user.getPassword())){
+            throw new AppException(UserErrorCode.SAME_AS_OLD_PASSWORD); //USER-015
+        }
+        user.updatePassword(passwordEncoder.encode(newPassword));
+    }
 
     /**
      * 내 정보 수정
