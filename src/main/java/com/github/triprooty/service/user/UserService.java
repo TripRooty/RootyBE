@@ -2,6 +2,7 @@ package com.github.triprooty.service.user;
 
 
 import com.github.triprooty.domain.User;
+import com.github.triprooty.dto.request.user.PasswordChangeRequest;
 import com.github.triprooty.dto.request.user.UserInfoRequest;
 import com.github.triprooty.dto.response.user.UserInfoResponse;
 import com.github.triprooty.global.exception.AppException;
@@ -39,12 +40,17 @@ public class UserService {
      * 비밀번호 변경
      */
     @Transactional
-    public void changeUserPassword(UUID userId, String newPassword){
+    public void changeUserPassword(UUID userId, PasswordChangeRequest request){
         User user=getUserOrThrow(userId);
-        if(passwordEncoder.matches(newPassword,user.getPassword())){
+
+        // 1) 현재 비밀번호 검증
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new AppException(UserErrorCode.PASSWORD_MISMATCH); // USER-006
+        }
+        if(passwordEncoder.matches(request.getNewPassword(),user.getPassword())){
             throw new AppException(UserErrorCode.SAME_AS_OLD_PASSWORD); //USER-015
         }
-        user.updatePassword(passwordEncoder.encode(newPassword));
+        user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
     }
 
     /**
@@ -141,7 +147,7 @@ public class UserService {
 
         // 간단 유효성(선택) : 이미지만 허용
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new AppException(FileErrorCode.INVALID_TYPE); // 커스텀 코드 추천
+            throw new AppException(FileErrorCode.INVALID_TYPE); // FILE-005
         }
 
         String objectName = "temp/profile/" + userId + "/" + UUID.randomUUID();
@@ -156,6 +162,7 @@ public class UserService {
         User user=getUserOrThrow(userId);
 
         //토큰 무효화
+        // TODO : 전체 리프레시 토큰 삭제
 
         user.softDelete();
     }

@@ -1,12 +1,12 @@
 package com.github.triprooty.controller;
 
-import com.github.triprooty.dto.request.RefreshRequest;
-import com.github.triprooty.dto.request.SigninRequest;
-import com.github.triprooty.dto.request.SignoutRequest;
-import com.github.triprooty.dto.request.SignupRequest;
-import com.github.triprooty.dto.response.TokenPairResponse;
+import com.github.triprooty.dto.request.auth.RefreshRequest;
+import com.github.triprooty.dto.request.auth.SigninRequest;
+import com.github.triprooty.dto.request.auth.SignoutRequest;
+import com.github.triprooty.dto.request.auth.SignupRequest;
+import com.github.triprooty.dto.response.auth.TokenPairResponse;
 import com.github.triprooty.global.dto.DataResponse;
-import com.github.triprooty.service.AuthService;
+import com.github.triprooty.service.user.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
