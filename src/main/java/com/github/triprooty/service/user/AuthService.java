@@ -1,11 +1,11 @@
-package com.github.triprooty.service;
+package com.github.triprooty.service.user;
 
 import com.github.triprooty.domain.User;
-import com.github.triprooty.dto.request.RefreshRequest;
-import com.github.triprooty.dto.request.SigninRequest;
-import com.github.triprooty.dto.request.SignoutRequest;
-import com.github.triprooty.dto.request.SignupRequest;
-import com.github.triprooty.dto.response.TokenPairResponse;
+import com.github.triprooty.dto.request.auth.RefreshRequest;
+import com.github.triprooty.dto.request.auth.SigninRequest;
+import com.github.triprooty.dto.request.auth.SignoutRequest;
+import com.github.triprooty.dto.request.auth.SignupRequest;
+import com.github.triprooty.dto.response.auth.TokenPairResponse;
 import com.github.triprooty.global.security.JwtTokenProvider;
 import com.github.triprooty.global.security.TokenUtils;
 import com.github.triprooty.global.security.UserPrincipal;

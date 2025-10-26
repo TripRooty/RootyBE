@@ -1,6 +1,9 @@
-// com.github.triprooty.global.security.SecurityConfig
-package com.github.triprooty.global.security;
+// com.github.triprooty.config.SecurityConfig
+package com.github.triprooty.config;
 
+import com.github.triprooty.global.security.JwtAccessDeniedHandler;
+import com.github.triprooty.global.security.JwtAuthenticationEntryPoint;
+import com.github.triprooty.global.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,6 +48,10 @@ public class SecurityConfig {
                 )
                 // DaoAuthenticationProvider를 명시 등록하지 않고,
                 // Boot의 자동 구성(UDS + PasswordEncoder) 사용
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(new JwtAuthenticationEntryPoint())
+                        .accessDeniedHandler(new JwtAccessDeniedHandler())
+                )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
