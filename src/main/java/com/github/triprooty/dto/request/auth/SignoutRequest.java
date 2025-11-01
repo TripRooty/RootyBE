@@ -1,3 +1,3 @@
 package com.github.triprooty.dto.request.auth;
 
-public record SignoutRequest(String refreshToken) {}
+public record SignoutRequest(String refreshToken) { }
