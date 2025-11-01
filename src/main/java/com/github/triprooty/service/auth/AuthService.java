@@ -6,6 +6,8 @@ import com.github.triprooty.dto.request.auth.SigninRequest;
 import com.github.triprooty.dto.request.auth.SignoutRequest;
 import com.github.triprooty.dto.request.auth.SignupRequest;
 import com.github.triprooty.dto.response.auth.TokenPairResponse;
+import com.github.triprooty.global.exception.AppException;
+import com.github.triprooty.global.exception.user.UserErrorCode;
 import com.github.triprooty.global.security.JwtTokenProvider;
 import com.github.triprooty.global.security.TokenUtils;
 import com.github.triprooty.global.security.UserPrincipal;
@@ -40,12 +42,11 @@ public class AuthService {
 
     @Transactional
     public void signup(SignupRequest req) {
-        // TODO: 에러코드 사용하여 수정
         if (userRepository.existsByEmail(req.email())) {
-            throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
+            throw new AppException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
         if (userRepository.existsByName(req.name())) {
-            throw new IllegalArgumentException("이미 존재하는 닉네임입니다.");
+            throw new AppException(UserErrorCode.DUPLICATE_NICKNAME);
         }
         userRepository.save(User.builder()
                 .email(req.email())
@@ -83,8 +84,7 @@ public class AuthService {
         String key = rtKey(hash);
         String userIdStr = redisTemplate.opsForValue().get(key);
         if (userIdStr == null) {
-            // TODO: 에러코드 사용하여 수정
-            throw new BadCredentialsException("Invalid or expired refresh token");
+            throw new AppException(UserErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         UUID userId = UUID.fromString(userIdStr);
