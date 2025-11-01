@@ -6,7 +6,7 @@ import com.github.triprooty.dto.request.auth.SignoutRequest;
 import com.github.triprooty.dto.request.auth.SignupRequest;
 import com.github.triprooty.dto.response.auth.TokenPairResponse;
 import com.github.triprooty.global.dto.DataResponse;
-import com.github.triprooty.service.user.AuthService;
+import com.github.triprooty.service.auth.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

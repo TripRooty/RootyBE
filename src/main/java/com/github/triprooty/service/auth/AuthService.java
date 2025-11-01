@@ -1,4 +1,4 @@
-package com.github.triprooty.service.user;
+package com.github.triprooty.service.auth;
 
 import com.github.triprooty.domain.User;
 import com.github.triprooty.dto.request.auth.RefreshRequest;
