@@ -44,6 +44,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.PATCH,
+                                "/api/v1/auth/reset-password"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 // DaoAuthenticationProvider를 명시 등록하지 않고,
