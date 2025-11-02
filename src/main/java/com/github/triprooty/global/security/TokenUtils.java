@@ -8,7 +8,7 @@ public final class TokenUtils {
     private static final SecureRandom RNG = new SecureRandom();
     private TokenUtils(){}
 
-    public static String newRefreshToken() {
+    public static String newToken() {
         byte[] bytes = new byte[48]; // 384-bit
         RNG.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);

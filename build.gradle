@@ -46,6 +46,8 @@ dependencies {
 	//GCS
 	implementation("com.google.cloud:google-cloud-storage:2.40.1")
 
+    //email
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
 
     //jwt
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'

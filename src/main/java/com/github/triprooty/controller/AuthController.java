@@ -1,9 +1,6 @@
 package com.github.triprooty.controller;
 
-import com.github.triprooty.dto.request.auth.RefreshRequest;
-import com.github.triprooty.dto.request.auth.SigninRequest;
-import com.github.triprooty.dto.request.auth.SignoutRequest;
-import com.github.triprooty.dto.request.auth.SignupRequest;
+import com.github.triprooty.dto.request.auth.*;
 import com.github.triprooty.dto.response.auth.TokenPairResponse;
 import com.github.triprooty.global.dto.DataResponse;
 import com.github.triprooty.service.auth.AuthService;
@@ -38,6 +35,12 @@ public class AuthController {
     @PostMapping("/signout")
     public ResponseEntity<DataResponse<Void>> signout(@RequestBody @Valid SignoutRequest req) {
         authService.signout(req);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<DataResponse<Void>> resetPassword(@RequestBody @Valid ResetPasswordRequest req) {
+        authService.resetPassword(req);
         return ResponseEntity.ok().build();
     }
 }

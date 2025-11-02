@@ -24,7 +24,10 @@ public enum UserErrorCode implements ErrorCode {
     INVALID_PROFILE_UPDATE(HttpStatus.BAD_REQUEST, "유효하지 않은 사용자 수정 요청입니다.", "USER-014"),
     SAME_AS_OLD_PASSWORD(HttpStatus.BAD_REQUEST, "기존 비밀번호와 동일합니다.", "USER-015"),
     UPLOAD_PROFILE_IMAGE_FAIL(HttpStatus.INTERNAL_SERVER_ERROR, "프로필 이미지 업로드에 실패했습니다.", "USER-016"),
-    PASSWORD_RESET_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "비밀번호 재설정 토큰이 만료되었거나 유효하지 않습니다.", "USER-017");
+    PASSWORD_RESET_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "비밀번호 재설정 토큰이 만료되었거나 유효하지 않습니다.", "USER-017"),
+    EMAIL_VERIFY_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "이메일 인증 코드가 만료되었습니다.", "USER-018"),
+    EMAIL_VERIFY_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "이메일 인증 코드가 일치하지 않습니다.", "USER-019"),
+    ;
 
     private final HttpStatus httpStatus;
     private final String message;
