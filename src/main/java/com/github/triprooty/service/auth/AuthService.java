@@ -3,7 +3,6 @@ package com.github.triprooty.service.auth;
 import com.github.triprooty.domain.User;
 import com.github.triprooty.dto.request.auth.*;
 import com.github.triprooty.dto.response.auth.EmailCodeVerifyResponse;
-import com.github.triprooty.dto.response.auth.EmailVerifyResponse;
 import com.github.triprooty.dto.response.auth.TokenPairResponse;
 import com.github.triprooty.global.exception.AppException;
 import com.github.triprooty.global.exception.common.CommonErrorCode;
@@ -25,6 +24,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -163,19 +163,26 @@ public class AuthService {
                 .build());
     }
 
-    // 로그인: email + password + deviceId 필요
     @Transactional
     public TokenPairResponse signin(@Valid SigninRequest req) {
-        Authentication auth = authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.email(), req.password())
-        );
-        UserPrincipal p = (UserPrincipal) auth.getPrincipal();
+        if (!userRepository.existsByEmail(req.email())) {
+            throw new AppException(UserErrorCode.USER_NOT_FOUND);
+        }
+        try {
+            Authentication auth = authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(req.email(), req.password())
+            );
+            UserPrincipal p = (UserPrincipal) auth.getPrincipal();
 
-        String deviceId = (req.deviceId() == null || req.deviceId().isBlank())
-                ? UUID.randomUUID().toString()
-                : req.deviceId();
+            String deviceId = (req.deviceId() == null || req.deviceId().isBlank())
+                    ? UUID.randomUUID().toString()
+                    : req.deviceId();
 
-        return issueTokens(p.getEmail(), p.getId(), deviceId);
+            return issueTokens(p.getEmail(), p.getId(), deviceId);
+
+        } catch (AuthenticationException e) {
+            throw new AppException(UserErrorCode.INVALID_PASSWORD);
+        }
     }
 
     // 리프레시: 기존 RT 단일 회전 + 인덱스 갱신
@@ -231,7 +238,7 @@ public class AuthService {
 
         String savedToken = redis.opsForValue().get(emailVerifiedKey(email));
         if (!req.emailVerifiedToken().equals(savedToken)) {
-            throw new AppException(UserErrorCode.PASSWORD_RESET_TOKEN_EXPIRED);
+            throw new AppException(UserErrorCode.EMAIL_VERIFY_TOKEN_EXPIRED);
         }
 
         User user = userRepository.findByEmail(email).orElseThrow(UserNotFoundException::new);
@@ -239,6 +246,8 @@ public class AuthService {
             throw new AppException(UserErrorCode.SAME_AS_OLD_PASSWORD); //USER-015
         }
         user.updatePassword(passwordEncoder.encode(password));
+
+        redis.delete(emailVerifiedKey(email));
     }
 
     // (선택) 전체 로그아웃: 이메일의 모든 기기 토큰 제거
@@ -257,7 +266,7 @@ public class AuthService {
     }
 
     @Transactional
-    public EmailVerifyResponse sendEmail(EmailVerifyReqeust req) {
+    public void sendEmail(EmailVerifyReqeust req) {
         // 1) 회원 존재 여부 확인
         if (!userRepository.existsByEmail(req.email())) {
             throw new AppException(UserErrorCode.USER_NOT_FOUND);
@@ -282,9 +291,8 @@ public class AuthService {
 
             mailSender.send(mime);
         } catch (MessagingException e) {
-            return new EmailVerifyResponse(false);
+           throw new AppException(CommonErrorCode.INTERNAL_SERVER_ERROR);
         }
-        return new EmailVerifyResponse(true);
     }
 
     @Transactional
