@@ -1,6 +1,8 @@
 package com.github.triprooty.controller;
 
+import com.github.triprooty.controller.docs.AuthSwaggerSpec;
 import com.github.triprooty.dto.request.auth.*;
+import com.github.triprooty.dto.response.auth.EmailCodeVerifyResponse;
 import com.github.triprooty.dto.response.auth.TokenPairResponse;
 import com.github.triprooty.global.dto.DataResponse;
 import com.github.triprooty.service.auth.AuthService;
@@ -12,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-public class AuthController {
+public class AuthController implements AuthSwaggerSpec {
 
     private final AuthService authService;
 
@@ -38,9 +40,20 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/reset-password")
+    @PatchMapping("/reset-password")
     public ResponseEntity<DataResponse<Void>> resetPassword(@RequestBody @Valid ResetPasswordRequest req) {
         authService.resetPassword(req);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/email/send")
+    public ResponseEntity<DataResponse<Void>> send(@RequestBody @Valid EmailVerifyReqeust req) {
+        authService.sendEmail(req);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/email/verify")
+    public ResponseEntity<DataResponse<EmailCodeVerifyResponse>> verify(@RequestBody @Valid EmailCodeVerifyRequest req) {
+        return ResponseEntity.ok(DataResponse.from(authService.verifyCode(req)));
     }
 }
