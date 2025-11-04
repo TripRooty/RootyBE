@@ -18,7 +18,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.*;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
@@ -42,7 +44,10 @@ public class SecurityConfig {
 
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/v1/auth/**"
+                                "/api/v1/auth/signup",
+                                "/api/v1/auth/signin",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/email/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.PATCH,
                                 "/api/v1/auth/reset-password"

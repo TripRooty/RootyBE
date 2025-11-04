@@ -22,7 +22,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.security.authentication.*;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -213,8 +214,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void signout(@Valid SignoutRequest req) {
-        final String email = req.email();
+    public void signout(String email, @Valid SignoutRequest req) {
         final String deviceId = req.deviceId();
 
         // 1) 해당 email+deviceId 조합의 모든 해시 가져오기

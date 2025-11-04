@@ -5,14 +5,17 @@ import com.github.triprooty.dto.response.auth.EmailCodeVerifyResponse;
 import com.github.triprooty.dto.response.auth.TokenPairResponse;
 import com.github.triprooty.global.dto.DataResponse;
 import com.github.triprooty.global.dto.ErrorResponse;
+import com.github.triprooty.global.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.RequestBody;
 
 @Tag(name = "Auth", description = "인증 관련 API")
@@ -45,10 +48,11 @@ public interface AuthSwaggerSpec {
     public ResponseEntity<DataResponse<TokenPairResponse>> refresh(@RequestBody @Valid RefreshRequest req);
 
     @Operation(summary = "로그아웃", description = "로그아웃한 기기의 정보를 모두 지웁니다.")
+    @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "로그아웃 성공"),
     })
-    public ResponseEntity<DataResponse<Void>> signout(@RequestBody @Valid SignoutRequest req);
+    public ResponseEntity<DataResponse<Void>> signout(@AuthenticationPrincipal UserPrincipal userDetails, @RequestBody @Valid SignoutRequest req);
 
     @Operation(summary = "비밀번호 초기화", description = "이메일 인증 토큰으로 비밀번호를 변경합니다.")
     @ApiResponses({
