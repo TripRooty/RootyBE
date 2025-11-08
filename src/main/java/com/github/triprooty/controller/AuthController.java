@@ -24,7 +24,7 @@ public class AuthController implements AuthSwaggerSpec {
     @PostMapping("/signup")
     public ResponseEntity<DataResponse<Void>> signup(@RequestBody @Valid SignupRequest req) {
         authService.signup(req);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(DataResponse.ok());
     }
 
     @PostMapping("/signin")
