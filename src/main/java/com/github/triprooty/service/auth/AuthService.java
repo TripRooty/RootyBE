@@ -28,9 +28,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -48,16 +53,61 @@ public class AuthService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Duration CODE_TTL = Duration.ofMinutes(5);
 
-    @Value("${jwt.refresh-token-expire-ms}") long refreshTokenExpireMs;
+    @Value("${jwt.refresh-token-expire-ms}")
+    long refreshTokenExpireMs;
 
-    // ===== Redis Key Helpers =====
-    private String rtKey(String hash) { return "rt:" + hash; }
-    private String idxEmail(String email) { return "rti:email:" + email.toLowerCase(); }
+    // =========================
+    // Redis Key Helpers
+    // =========================
+    private String rtKey(String rtHash) { return "rt:" + rtHash; }
+
+    // 인덱스: email -> rtHash set
+    private String idxEmail(String email) { return "rti:email:" + normalizeEmail(email); }
+
+    // 인덱스: deviceId -> rtHash set (선택이지만 운영/추적에 유용)
     private String idxDev(String deviceId) { return "rti:dev:" + deviceId; }
+
+    // 인덱스: email + deviceId -> rtHash set  (기기별 로그아웃 핵심)
     private String idxEmailDev(String email, String deviceId) {
-        return "rti:emaildev:" + email.toLowerCase() + ":" + deviceId;
+        return "rti:emaildev:" + normalizeEmail(email) + ":" + deviceId;
     }
 
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.toLowerCase(Locale.ROOT).trim();
+    }
+
+    // =========================
+    // RT Payload (Redis Value)
+    // =========================
+    /**
+     * Redis rt:{hash} value에 최소한으로 userId + deviceId를 저장.
+     * (실무에서는 JSON으로도 많이 저장하지만, 의존성/오버헤드 줄이려면 delim도 충분)
+     */
+    private record RtPayload(UUID userId, String deviceId, long issuedAtEpochSec) {
+
+        String encode() {
+            // uid:did:iat
+            return userId + ":" + deviceId + ":" + issuedAtEpochSec;
+        }
+
+        static RtPayload decode(String raw) {
+            if (!StringUtils.hasText(raw)) return null;
+            String[] parts = raw.split(":", 3);
+            if (parts.length != 3) return null;
+            try {
+                UUID uid = UUID.fromString(parts[0]);
+                String did = parts[1];
+                long iat = Long.parseLong(parts[2]);
+                return new RtPayload(uid, did, iat);
+            } catch (RuntimeException e) {
+                return null;
+            }
+        }
+    }
+
+    // =========================
+    // Email verify html
+    // =========================
     private String buildVerifyHtml(String code) {
         return """
     <!doctype html>
@@ -116,11 +166,11 @@ public class AuthService {
     }
 
     private String codeKey(String email) {
-        return "auth:code:" + email.toLowerCase();
+        return "auth:code:" + normalizeEmail(email);
     }
 
     public String emailVerifiedKey(String email) {
-        return "evk:" + email.toLowerCase();
+        return "evk:" + normalizeEmail(email);
     }
 
     private String gen6() {
@@ -128,34 +178,68 @@ public class AuthService {
         return String.format("%06d", n);
     }
 
-    // ===== 토큰 발급 공통 로직 =====
+    // =========================
+    // DeviceId policy
+    // =========================
+    /**
+     * 실무 권장: deviceId는 클라가 1회 생성해 영구 저장 후 항상 내려주기.
+     * - 다만 기존 클라/웹 호환을 위해 비어있으면 서버가 발급해서 응답에 포함.
+     * - 완전 엄격하게 갈 거면 여기서 예외 던지면 됨.
+     */
+    private String resolveDeviceId(String maybeDeviceId) {
+        if (StringUtils.hasText(maybeDeviceId)) return maybeDeviceId.trim();
+        return UUID.randomUUID().toString();
+    }
+
+    // =========================
+    // Token issue / revoke
+    // =========================
     private TokenPairResponse issueTokens(String email, UUID userId, String deviceId) {
         String access = jwtTokenProvider.createToken(email, userId);
 
         String rtPlain = TokenUtils.newToken();
-        String rtHash  = TokenUtils.sha256Hex(rtPlain);
+        String rtHash = TokenUtils.sha256Hex(rtPlain);
 
-        // 본문 저장 (TTL)
-        redis.opsForValue().set(rtKey(rtHash), userId.toString(),
-                refreshTokenExpireMs, TimeUnit.MILLISECONDS);
+        RtPayload payload = new RtPayload(userId, deviceId, Instant.now().getEpochSecond());
 
-        // 인덱스 등록
+        // 본문 저장 + 인덱스 등록
+        // (원자성 100% 필요하면 Lua로 묶을 수 있지만, 보통은 이 정도로 충분)
+        redis.opsForValue().set(rtKey(rtHash), payload.encode(), refreshTokenExpireMs, TimeUnit.MILLISECONDS);
+
         redis.opsForSet().add(idxEmail(email), rtHash);
         redis.opsForSet().add(idxDev(deviceId), rtHash);
         redis.opsForSet().add(idxEmailDev(email, deviceId), rtHash);
 
-        // 인덱스 키에도 TTL을 걸어두면 고아 인덱스 정리에 도움됨(선택)
-        redis.expire(idxEmail(email), refreshTokenExpireMs, TimeUnit.MILLISECONDS);
-        redis.expire(idxDev(deviceId), refreshTokenExpireMs, TimeUnit.MILLISECONDS);
-        redis.expire(idxEmailDev(email, deviceId), refreshTokenExpireMs, TimeUnit.MILLISECONDS);
+        // 인덱스 TTL도 맞춰서 고아 인덱스 줄이기
+        expireIndexKeys(email, deviceId);
 
         return new TokenPairResponse(access, rtPlain, deviceId);
     }
 
+    private void expireIndexKeys(String email, String deviceId) {
+        redis.expire(idxEmail(email), refreshTokenExpireMs, TimeUnit.MILLISECONDS);
+        redis.expire(idxDev(deviceId), refreshTokenExpireMs, TimeUnit.MILLISECONDS);
+        redis.expire(idxEmailDev(email, deviceId), refreshTokenExpireMs, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * 단일 RT 제거: 본문 + 인덱스 모두 정리
+     */
+    private void revokeSingle(String rtHash, String email, String deviceId) {
+        redis.delete(rtKey(rtHash));
+        redis.opsForSet().remove(idxEmail(email), rtHash);
+        redis.opsForSet().remove(idxDev(deviceId), rtHash);
+        redis.opsForSet().remove(idxEmailDev(email, deviceId), rtHash);
+    }
+
+    // =========================
+    // Auth flows
+    // =========================
     @Transactional
     public void signup(SignupRequest req) {
         if (userRepository.existsByEmail(req.email())) throw new AppException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         if (userRepository.existsByName(req.name())) throw new AppException(UserErrorCode.DUPLICATE_NICKNAME);
+
         userRepository.save(User.builder()
                 .email(req.email())
                 .name(req.name())
@@ -169,16 +253,16 @@ public class AuthService {
         if (!userRepository.existsByEmail(req.email())) {
             throw new AppException(UserErrorCode.USER_NOT_FOUND);
         }
+
         try {
             Authentication auth = authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(req.email(), req.password())
             );
             UserPrincipal p = (UserPrincipal) auth.getPrincipal();
 
-            String deviceId = (req.deviceId() == null || req.deviceId().isBlank())
-                    ? UUID.randomUUID().toString()
-                    : req.deviceId();
+            String deviceId = resolveDeviceId(req.deviceId());
 
+            // email은 principal 기준(정규화/케이스 이슈 방지)
             return issueTokens(p.getEmail(), p.getId(), deviceId);
 
         } catch (AuthenticationException e) {
@@ -186,96 +270,139 @@ public class AuthService {
         }
     }
 
-    // 리프레시: 기존 RT 단일 회전 + 인덱스 갱신
+    /**
+     * refresh:
+     * - rt:{hash} 에 저장된 deviceId와 요청 deviceId가 반드시 일치해야 함
+     * - 일치하면 기존 RT 회수 후 새 RT 발급(회전)
+     */
     @Transactional
     public TokenPairResponse refresh(@Valid RefreshRequest req) {
+        String deviceId = resolveDeviceId(req.deviceId()); // 엄격 모드면 resolve 대신 "required" 체크로 바꾸기
+
         String oldPlain = req.refreshToken();
-        String oldHash  = TokenUtils.sha256Hex(oldPlain);
+        String oldHash = TokenUtils.sha256Hex(oldPlain);
 
-        String userIdStr = redis.opsForValue().get(rtKey(oldHash));
-        if (userIdStr == null) throw new AppException(UserErrorCode.INVALID_REFRESH_TOKEN);
+        String raw = redis.opsForValue().get(rtKey(oldHash));
+        RtPayload payload = RtPayload.decode(raw);
+        if (payload == null) throw new AppException(UserErrorCode.INVALID_REFRESH_TOKEN);
 
-        UUID userId = UUID.fromString(userIdStr);
-        User user = userRepository.findById(userId).orElseThrow();
+        if (!deviceId.equals(payload.deviceId())) {
+            // 다른 기기에서 RT 탈취/재사용 방지
+            throw new AppException(UserErrorCode.INVALID_REFRESH_TOKEN);
+        }
 
-        // 기존 RT 제거 + 인덱스에서 제거
-        revokeSingle(oldHash, user.getEmail(), req.deviceId());
+        UUID userId = payload.userId();
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+
+        // 기존 RT 제거
+        revokeSingle(oldHash, user.getEmail(), deviceId);
 
         // 새 RT 발급
-        return issueTokens(user.getEmail(), user.getId(), req.deviceId());
+        return issueTokens(user.getEmail(), user.getId(), deviceId);
     }
 
-    // 단일 RT 제거(리프레시 회전/수동 로그아웃에서 사용)
-    private void revokeSingle(String rtHash, String email, String deviceId) {
-        redis.delete(rtKey(rtHash));
-        redis.opsForSet().remove(idxEmail(email), rtHash);
-        redis.opsForSet().remove(idxDev(deviceId), rtHash);
-        redis.opsForSet().remove(idxEmailDev(email, deviceId), rtHash);
-    }
-
+    /**
+     * 기기별 로그아웃:
+     * - email + deviceId 조합으로 연결된 RT 해시 전부 회수
+     */
     @Transactional
     public void signout(String email, @Valid SignoutRequest req) {
-        final String deviceId = req.deviceId();
+        String deviceId = resolveDeviceId(req.deviceId()); // 엄격 모드면 required 체크
 
-        // 1) 해당 email+deviceId 조합의 모든 해시 가져오기
-        var hashes = redis.opsForSet().members(idxEmailDev(email, deviceId));
+        String normalizedEmail = normalizeEmail(email);
+        var key = idxEmailDev(normalizedEmail, deviceId);
+
+        Set<String> hashes = redis.opsForSet().members(key);
         if (hashes == null || hashes.isEmpty()) return;
 
-        // 2) 각 해시에 대해 본문/인덱스 모두 제거
         for (String h : hashes) {
             redis.delete(rtKey(h));
-            redis.opsForSet().remove(idxEmail(email), h);
+            redis.opsForSet().remove(idxEmail(normalizedEmail), h);
             redis.opsForSet().remove(idxDev(deviceId), h);
         }
-        // 3) 조합 인덱스 세트 자체도 비우고/삭제
-        redis.delete(idxEmailDev(email, deviceId));
+
+        // 조합 인덱스는 통째로 제거
+        redis.delete(key);
     }
 
+    /**
+     * 전체 로그아웃(이메일 기준):
+     * - email 인덱스에 있는 모든 RT를 회수
+     * - rt payload에 들어있는 deviceId로 dev/emaildev 인덱스까지 정밀 정리
+     */
+    @Transactional
+    public void signoutAllByEmail(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        String emailIdxKey = idxEmail(normalizedEmail);
+
+        Set<String> hashes = redis.opsForSet().members(emailIdxKey);
+        if (hashes == null || hashes.isEmpty()) return;
+
+        // rt payload를 읽어 deviceId까지 정리
+        List<String> rtKeys = hashes.stream().map(this::rtKey).toList();
+        List<String> raws = redis.opsForValue().multiGet(rtKeys);
+
+        // 1) 본문 키 삭제
+        redis.delete(rtKeys);
+
+        // 2) 인덱스 정리
+        int i = 0;
+        for (String h : hashes) {
+            String raw = (raws != null && raws.size() > i) ? raws.get(i) : null;
+            i++;
+
+            RtPayload payload = RtPayload.decode(raw);
+            if (payload == null) continue;
+
+            String deviceId = payload.deviceId();
+
+            redis.opsForSet().remove(idxDev(deviceId), h);
+            redis.opsForSet().remove(idxEmailDev(normalizedEmail, deviceId), h);
+        }
+
+        // 3) email 인덱스 제거
+        redis.delete(emailIdxKey);
+
+        // 4) 남아있는 emaildev:* 빈 set은 TTL로 자연 소멸(또는 운영 배치로 스캔 정리)
+    }
+
+    // =========================
+    // Password reset
+    // =========================
     @Transactional
     public void resetPassword(@Valid ResetPasswordRequest req) {
-        final String email = req.email();
+        final String email = normalizeEmail(req.email());
         final String password = req.password();
 
         String savedToken = redis.opsForValue().get(emailVerifiedKey(email));
-        if (!req.emailVerifiedToken().equals(savedToken)) {
+        if (!StringUtils.hasText(savedToken) || !req.emailVerifiedToken().equals(savedToken)) {
             throw new AppException(UserErrorCode.EMAIL_VERIFY_TOKEN_EXPIRED);
         }
 
         User user = userRepository.findByEmail(email).orElseThrow(UserNotFoundException::new);
-        if(passwordEncoder.matches(password, user.getPassword())){
-            throw new AppException(UserErrorCode.SAME_AS_OLD_PASSWORD); //USER-015
+        if (passwordEncoder.matches(password, user.getPassword())) {
+            throw new AppException(UserErrorCode.SAME_AS_OLD_PASSWORD);
         }
-        user.updatePassword(passwordEncoder.encode(password));
 
+        user.updatePassword(passwordEncoder.encode(password));
         redis.delete(emailVerifiedKey(email));
     }
 
-    // (선택) 전체 로그아웃: 이메일의 모든 기기 토큰 제거
-    @Transactional
-    public void signoutAllByEmail(String email) {
-        var hashes = redis.opsForSet().members(idxEmail(email));
-        if (hashes == null || hashes.isEmpty()) return;
-
-        for (String h : hashes) {
-            redis.delete(rtKey(h));
-            // dev 인덱스는 어떤 dev인지 모름 -> 정밀 제거는 선택 사항
-            // 안전하게는 스캔 기반으로 emaildev:* 제거, 여기선 간단화
-        }
-        redis.delete(idxEmail(email));
-        // emaildev:* 정리는 운영 배치 또는 SCAN으로 처리 가능
-    }
-
+    // =========================
+    // Email verify
+    // =========================
     @Transactional
     public void sendEmail(EmailVerifyReqeust req) {
-        // 1) 회원 존재 여부 확인
         if (!userRepository.existsByEmail(req.email())) {
             throw new AppException(UserErrorCode.USER_NOT_FOUND);
         }
-        // 2) 코드 생성 + 저장(5분 TTL, 덮어쓰기)
+
+        String email = normalizeEmail(req.email());
         String code = gen6();
+
         try {
-            redis.delete(codeKey(req.email()));
-            redis.opsForValue().set(codeKey(req.email()), code, CODE_TTL);
+            redis.delete(codeKey(email));
+            redis.opsForValue().set(codeKey(email), code, CODE_TTL);
         } catch (DataAccessException e) {
             throw new AppException(CommonErrorCode.INTERNAL_SERVER_ERROR);
         }
@@ -283,35 +410,32 @@ public class AuthService {
         try {
             MimeMessage mime = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mime, true, "UTF-8");
-            helper.setTo(req.email());
+            helper.setTo(email);
             helper.setSubject("[TripRooty] 이메일 인증");
 
-            String html = buildVerifyHtml(code);
-            helper.setText(html, true);
-
+            helper.setText(buildVerifyHtml(code), true);
             mailSender.send(mime);
         } catch (MessagingException e) {
-           throw new AppException(CommonErrorCode.INTERNAL_SERVER_ERROR);
+            throw new AppException(CommonErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
     @Transactional
     public EmailCodeVerifyResponse verifyCode(EmailCodeVerifyRequest req) {
-        String key = codeKey(req.email());
+        String email = normalizeEmail(req.email());
+        String key = codeKey(email);
 
-        // Redis 6.2+면 getAndDelete 사용 (Spring Data 3.x 지원)
         String saved = redis.opsForValue().get(key);
-        if (saved == null) throw new AppException(UserErrorCode.EMAIL_VERIFY_CODE_EXPIRED);
+        if (!StringUtils.hasText(saved)) throw new AppException(UserErrorCode.EMAIL_VERIFY_CODE_EXPIRED);
 
         if (!saved.equals(req.code())) {
             throw new AppException(UserErrorCode.EMAIL_VERIFY_CODE_MISMATCH);
         }
 
-        // 성공 시 즉시 삭제 (원자성을 원하면 Lua 스크립트 사용 가능)
         redis.delete(key);
 
         String emailVerifiedToken = TokenUtils.newToken();
-        redis.opsForValue().set(emailVerifiedKey(req.email()), emailVerifiedToken, CODE_TTL);
+        redis.opsForValue().set(emailVerifiedKey(email), emailVerifiedToken, CODE_TTL);
 
         return new EmailCodeVerifyResponse(emailVerifiedToken);
     }
