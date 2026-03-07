@@ -196,3 +196,4 @@ src/main/resources/application-local.yml
 src/main/resources/triprooty-3f47bb6a6f5a.json
 
 .idea
+bin
