@@ -19,3 +19,7 @@ gcp:
   bucket: triprooty-uploads           # 만든 버킷명
   credentials:
     location: classpath:triprooty-3f47bb6a6f5a.json   # 방금 올린 JSON 경로
+
+google:
+  places:
+    api-key: ${GOOGLE_PLACES_API_KEY:}
